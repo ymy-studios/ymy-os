@@ -260,7 +260,6 @@ jobs:
             echo "║          🔨 ISO BUILD BAŞLIYOR             ║"
             echo "╠════════════════════════════════════════════╣"
             echo "║ Bu işlem 30-90 dakika sürebilir...         ║"
-            echo "║ Lütfen bekleyin...                         ║"
             echo "╚════════════════════════════════════════════╝"
             echo ""
             
@@ -273,11 +272,8 @@ jobs:
               --volid="YmY-OS-${VERSION}" \
               --iso-only \
               --iso-name="${ISO_NAME}.iso" \
-              --releasever=${FEDORA_VERSION} \
+              --releasever="${FEDORA_VERSION}" \
               --macboot \
-              --anaconda-arg="--product YmY OS" \
-              --anaconda-arg="--version ${VERSION}" \
-              --title="YmY OS ${VERSION}" \
               2>&1 | tee /workspace/output/build.log
           '
         timeout-minutes: 120
@@ -364,7 +360,7 @@ jobs:
           
           ### ✨ Özellikler
           
-          - 🖥️ GNOME masaüstü ortamı (özelleştirilmiş)
+          - 🖥️ GNOME 49 masaüstü ortamı (özelleştirilmiş)
           - 🖱️ Terminal gerektirmeden kullanım
           - 🇹🇷 Tam Türkçe dil desteği
           - 📦 Önceden yüklenmiş kullanışlı uygulamalar
@@ -393,6 +389,7 @@ jobs:
           
           📅 **Build Tarihi:** $(date '+%d %B %Y')  
           🎩 **Fedora Sürümü:** ${{ github.event.inputs.fedora_version }}  
+          🖥️ **GNOME Sürümü:** 49  
           🔗 **GitHub:** https://github.com/ymy-studios/ymy-os
           EOF
 
