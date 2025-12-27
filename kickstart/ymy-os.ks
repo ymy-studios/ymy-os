@@ -1,15 +1,13 @@
 # kickstart/ymy-os.ks
 # YmY OS - Yeni Başlayanlar İçin Linux
 # Fedora %FEDORA_VERSION% Tabanlı
+# GNOME 49 - Wayland Only
 
 #version=DEVEL
 
 #############################################
 # TEMEL SİSTEM AYARLARI
 #############################################
-
-# Grafik kurulum
-graphical
 
 # Klavye düzeni
 keyboard --vckeymap=tr --xlayouts='tr','us' --switch='grp:alt_shift_toggle'
@@ -30,9 +28,6 @@ selinux --enforcing
 # Firewall
 firewall --enabled --service=mdns
 
-# X Window
-xconfig --startxonboot
-
 # Bootloader
 bootloader --location=mbr --timeout=5 --append="rhgb quiet"
 
@@ -41,9 +36,6 @@ zerombr
 clearpart --all --initlabel
 autopart --type=plain
 
-# İlk açılış
-firstboot --enable
-
 # Yeniden başlat
 reboot --eject
 
@@ -51,7 +43,7 @@ reboot --eject
 # KULLANICI
 #############################################
 
-# Root devre dışı (güvenlik için)
+# Root devre dışı
 rootpw --lock
 
 # Live kullanıcı
@@ -61,16 +53,9 @@ user --name=ymy --groups=wheel --password=ymy --plaintext --gecos="YmY OS Kullan
 # DEPOLAR
 #############################################
 
-# Fedora ana depo
 url --mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=fedora-$releasever&arch=$basearch
-
-# Fedora güncellemeler
 repo --name=fedora-updates --mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=updates-released-f$releasever&arch=$basearch
-
-# RPM Fusion Free
 repo --name=rpmfusion-free --mirrorlist=https://mirrors.rpmfusion.org/metalink?repo=free-fedora-$releasever&arch=$basearch
-
-# RPM Fusion Non-Free
 repo --name=rpmfusion-nonfree --mirrorlist=https://mirrors.rpmfusion.org/metalink?repo=nonfree-fedora-$releasever&arch=$basearch
 
 #############################################
@@ -79,7 +64,7 @@ repo --name=rpmfusion-nonfree --mirrorlist=https://mirrors.rpmfusion.org/metalin
 %packages
 
 # ═══════════════════════════════════════════
-# LIVE ISO İÇİN GEREKLİ PAKETLER (ÖNEMLİ!)
+# LIVE ISO İÇİN GEREKLİ PAKETLER
 # ═══════════════════════════════════════════
 dracut-live
 dracut-squash
@@ -93,7 +78,6 @@ anaconda-live
 # TEMEL SİSTEM
 # ═══════════════════════════════════════════
 @core
-@base-x
 @fonts
 @hardware-support
 @multimedia
@@ -101,12 +85,28 @@ anaconda-live
 @printing
 
 # ═══════════════════════════════════════════
-# GNOME MASAÜSTÜ
+# WAYLAND (GNOME 49+)
+# ═══════════════════════════════════════════
+# ❌ @base-x kaldırıldı - X11 artık yok
+@base-graphical
+mutter
+egl-wayland
+xorg-x11-server-Xwayland
+libwayland-client
+libwayland-server
+libwayland-cursor
+libwayland-egl
+qt5-qtwayland
+qt6-qtwayland
+
+# ═══════════════════════════════════════════
+# GNOME MASAÜSTÜ (WAYLAND)
 # ═══════════════════════════════════════════
 @gnome-desktop
 gdm
 gnome-shell
 gnome-session
+gnome-session-wayland-session
 gnome-control-center
 gnome-settings-daemon
 gnome-initial-setup
@@ -116,6 +116,7 @@ gnome-software-plugin-flatpak
 # GNOME Temel Uygulamalar
 nautilus
 gnome-terminal
+gnome-console
 gnome-system-monitor
 gnome-disk-utility
 gnome-calculator
@@ -125,7 +126,7 @@ gnome-clocks
 gnome-contacts
 gnome-maps
 gnome-photos
-eog
+loupe
 evince
 file-roller
 gnome-screenshot
@@ -137,48 +138,34 @@ gnome-remote-desktop
 gnome-connections
 
 # ═══════════════════════════════════════════
-# GNOME ARAÇLARI VE ÖZELLEŞTİRME
+# GNOME ÖZELLEŞTİRME
 # ═══════════════════════════════════════════
 gnome-tweaks
 gnome-extensions-app
 gnome-shell-extension-appindicator
 
 # ═══════════════════════════════════════════
-# KULLANICI DOSTU UYGULAMALAR
+# UYGULAMALAR
 # ═══════════════════════════════════════════
-
-# İnternet
 firefox
 firefox-langpacks-tr
-
-# Ofis
 libreoffice-writer
 libreoffice-calc
 libreoffice-impress
 libreoffice-langpack-tr
-
-# Multimedya
 totem
 rhythmbox
-cheese
-sound-juicer
-brasero
-
-# Grafik
+snapshot
 shotwell
 simple-scan
 drawing
-
-# İletişim
 geary
-
-# Yardımcı
 deja-dup
 gnome-boxes
 transmission-gtk
 
 # ═══════════════════════════════════════════
-# SİSTEM ARAÇLARI (GUI)
+# SİSTEM ARAÇLARI
 # ═══════════════════════════════════════════
 gparted
 timeshift
@@ -202,13 +189,21 @@ gstreamer1-plugins-good
 gstreamer1-plugins-bad-free
 gstreamer1-plugins-ugly-free
 gstreamer1-plugin-openh264
+pipewire
+pipewire-pulseaudio
+pipewire-alsa
+pipewire-jack-audio-connection-kit
+wireplumber
 
 # ═══════════════════════════════════════════
-# SÜRÜCÜLER
+# SÜRÜCÜLER (WAYLAND)
 # ═══════════════════════════════════════════
 mesa-dri-drivers
 mesa-vulkan-drivers
 mesa-va-drivers
+mesa-libEGL
+mesa-libGL
+mesa-libgbm
 intel-media-driver
 libva-intel-driver
 
@@ -219,8 +214,6 @@ google-noto-fonts-common
 google-noto-sans-fonts
 google-noto-serif-fonts
 google-noto-emoji-fonts
-mozilla-fira-fonts-common
-adobe-source-code-pro-fonts
 dejavu-fonts-all
 
 # ═══════════════════════════════════════════
@@ -230,6 +223,9 @@ dejavu-fonts-all
 -@input-methods
 -fedora-release-notes
 -gnome-tour
+# X11 paketlerini kaldır (gereksiz)
+-xorg-x11-server-Xorg
+-xorg-x11-drv-*
 
 %end
 
@@ -244,13 +240,12 @@ set -e
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║            YmY OS Post-Installation Script                  ║"
 echo "║                    Sürüm: %YMY_VERSION%                     ║"
+echo "║                    GNOME 49 - Wayland                       ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 
 # ═══════════════════════════════════════════
 # YmY OS BRANDING
 # ═══════════════════════════════════════════
-echo "🎨 Branding yapılandırılıyor..."
-
 cat > /etc/os-release << 'EOF'
 NAME="YmY OS"
 VERSION="%YMY_VERSION%"
@@ -273,16 +268,13 @@ echo "YmY OS %YMY_VERSION%" > /etc/issue
 echo "YmY OS %YMY_VERSION%" > /etc/issue.net
 
 # ═══════════════════════════════════════════
-# FLATPAK YAPILANDIRMASI
+# FLATPAK
 # ═══════════════════════════════════════════
-echo "📦 Flatpak yapılandırılıyor..."
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
 # ═══════════════════════════════════════════
 # DNF YAPILANDIRMASI
 # ═══════════════════════════════════════════
-echo "⚙️ DNF yapılandırılıyor..."
-
 cat >> /etc/dnf/dnf.conf << 'EOF'
 max_parallel_downloads=10
 fastestmirror=True
@@ -291,10 +283,30 @@ defaultyes=True
 EOF
 
 # ═══════════════════════════════════════════
-# GNOME AYARLARI
+# GDM - WAYLAND ZORUNLU
 # ═══════════════════════════════════════════
-echo "🖥️ GNOME ayarları yapılandırılıyor..."
+mkdir -p /etc/gdm
 
+cat > /etc/gdm/custom.conf << 'EOF'
+[daemon]
+AutomaticLoginEnable=True
+AutomaticLogin=ymy
+# Wayland varsayılan (GNOME 49+ için zaten tek seçenek)
+WaylandEnable=true
+DefaultSession=gnome-wayland.desktop
+
+[security]
+
+[xdmcp]
+
+[chooser]
+
+[debug]
+EOF
+
+# ═══════════════════════════════════════════
+# GNOME AYARLARI (WAYLAND)
+# ═══════════════════════════════════════════
 mkdir -p /etc/dconf/db/local.d
 mkdir -p /etc/dconf/profile
 
@@ -309,8 +321,6 @@ color-scheme='prefer-dark'
 gtk-theme='Adwaita-dark'
 icon-theme='Adwaita'
 font-name='Cantarell 11'
-document-font-name='Cantarell 11'
-monospace-font-name='Source Code Pro 10'
 clock-format='24h'
 clock-show-date=true
 clock-show-weekday=true
@@ -318,43 +328,29 @@ enable-animations=true
 
 [org/gnome/desktop/wm/preferences]
 button-layout='appmenu:minimize,maximize,close'
-titlebar-font='Cantarell Bold 11'
 
 [org/gnome/mutter]
 edge-tiling=true
 dynamic-workspaces=true
+# Wayland için experimental özellikler
+experimental-features=['variable-refresh-rate', 'scale-monitor-framebuffer']
 
 [org/gnome/shell]
 favorite-apps=['org.gnome.Nautilus.desktop', 'firefox.desktop', 'org.gnome.Software.desktop', 'libreoffice-writer.desktop', 'org.gnome.Settings.desktop']
-
-[org/gnome/desktop/privacy]
-remember-recent-files=true
-recent-files-max-age=30
-remove-old-trash-files=true
-remove-old-temp-files=true
-old-files-age=30
-
-[org/gnome/settings-daemon/plugins/power]
-sleep-inactive-ac-timeout=1800
-sleep-inactive-battery-timeout=900
-power-button-action='interactive'
-
-[org/gnome/desktop/session]
-idle-delay=300
 
 [org/gnome/desktop/peripherals/touchpad]
 tap-to-click=true
 two-finger-scrolling-enabled=true
 natural-scroll=true
 
-[org/gnome/nautilus/preferences]
-default-folder-viewer='icon-view'
-show-hidden-files=false
-
 [org/gnome/software]
 download-updates=true
 download-updates-notify=true
 first-run=false
+
+[org/gnome/mutter/wayland]
+# Wayland için ek ayarlar
+xwayland-grab-access-rules=[]
 EOF
 
 dconf update
@@ -362,54 +358,26 @@ dconf update
 # ═══════════════════════════════════════════
 # SERVİSLER
 # ═══════════════════════════════════════════
-echo "⚙️ Servisler yapılandırılıyor..."
-
 systemctl enable gdm
 systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable cups
 systemctl enable fwupd
+systemctl enable pipewire
+systemctl enable wireplumber
 
 # ═══════════════════════════════════════════
-# LIVE SİSTEM AYARLARI
+# LIVE SİSTEM
 # ═══════════════════════════════════════════
-echo "💿 Live sistem ayarları yapılıyor..."
-
-# Live user için otomatik giriş
-cat > /etc/gdm/custom.conf << 'EOF'
-[daemon]
-AutomaticLoginEnable=True
-AutomaticLogin=ymy
-
-[security]
-
-[xdmcp]
-
-[chooser]
-
-[debug]
-EOF
-
-# Sudo şifresiz (live ortam için)
 echo "ymy ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers.d/ymy-live
 
 # ═══════════════════════════════════════════
 # TEMİZLİK
 # ═══════════════════════════════════════════
-echo "🧹 Temizlik yapılıyor..."
-
 dnf clean all
 rm -rf /var/cache/dnf/*
-rm -rf /var/log/*.log
-rm -rf /tmp/*
 
-echo ""
-echo "╔════════════════════════════════════════════════════════════╗"
-echo "║        ✅ YmY OS Kurulum Tamamlandı!                       ║"
-echo "║                                                            ║"
-echo "║   Sürüm: %YMY_VERSION%                                     ║"
-echo "║   GitHub: https://github.com/ymy-studios/ymy-os            ║"
-echo "╚════════════════════════════════════════════════════════════╝"
+echo "✅ YmY OS Kurulum Tamamlandı!"
 
 %end
 
@@ -417,8 +385,6 @@ echo "╚═══════════════════════�
 # POST - NOCHROOT
 #############################################
 %post --nochroot --log=/mnt/sysimage/root/ymy-branding.log
-
-echo "🎨 Branding dosyaları kopyalanıyor..."
 
 mkdir -p /mnt/sysimage/usr/share/ymy-os/branding
 
@@ -430,7 +396,5 @@ mkdir -p /mnt/sysimage/usr/share/pixmaps
 if [ -f /mnt/sysimage/usr/share/ymy-os/branding/logos/ymy-logo-256.png ]; then
     cp /mnt/sysimage/usr/share/ymy-os/branding/logos/ymy-logo-256.png /mnt/sysimage/usr/share/pixmaps/ymy-logo.png
 fi
-
-echo "✅ Branding tamamlandı"
 
 %end
