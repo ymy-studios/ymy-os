@@ -252,7 +252,19 @@ jobs:
         run: |
           docker exec fedora-builder bash -c '
             cd /workspace
-            mkdir -p output
+            
+            # ═══════════════════════════════════════════
+            # ÖNCEKİ BUILD KALINTULARINI TEMİZLE
+            # ═══════════════════════════════════════════
+            echo "🧹 Önceki build kalıntıları temizleniyor..."
+            rm -rf /workspace/output
+            rm -rf /var/tmp/lorax*
+            rm -rf /var/tmp/lmc*
+            rm -rf /tmp/lorax*
+            rm -rf /tmp/lmc*
+            
+            # Yeni output dizini oluştur
+            mkdir -p /workspace/output
             
             ISO_NAME="YmY-OS-${VERSION}-F${FEDORA_VERSION}-x86_64"
             
@@ -261,6 +273,11 @@ jobs:
             echo "╠════════════════════════════════════════════╣"
             echo "║ Bu işlem 30-90 dakika sürebilir...         ║"
             echo "╚════════════════════════════════════════════╝"
+            echo ""
+            echo "📋 Build Bilgileri:"
+            echo "   Sürüm    : ${VERSION}"
+            echo "   Fedora   : ${FEDORA_VERSION}"
+            echo "   ISO      : ${ISO_NAME}.iso"
             echo ""
             
             livemedia-creator \
