@@ -9,50 +9,33 @@
 # TEMEL SİSTEM AYARLARI
 #############################################
 
-# Klavye düzeni
 keyboard --vckeymap=tr --xlayouts='tr','us' --switch='grp:alt_shift_toggle'
-
-# Sistem dili
 lang tr_TR.UTF-8
-
-# Zaman dilimi
 timezone Europe/Istanbul --utc
-
-# Ağ yapılandırması
 network --bootproto=dhcp --device=link --activate --onboot=yes
 network --hostname=ymy-os
-
-# SELinux
 selinux --enforcing
-
-# Firewall
 firewall --enabled --service=mdns
-
-# Bootloader
 bootloader --location=mbr --timeout=5 --append="rhgb quiet"
 
-# Disk yapılandırması
+#############################################
+# DİSK YAPILANDIRMASI
+#############################################
 zerombr
 clearpart --all --initlabel
-autopart --type=plain
+part / --fstype="ext4" --size=8192
 
-# Yeniden başlat
 reboot --eject
 
 #############################################
 # KULLANICI
 #############################################
-
-# Root devre dışı
 rootpw --lock
-
-# Live kullanıcı
 user --name=ymy --groups=wheel --password=ymy --plaintext --gecos="YmY OS Kullanıcısı"
 
 #############################################
 # DEPOLAR
 #############################################
-
 url --mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=fedora-$releasever&arch=$basearch
 repo --name=fedora-updates --mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=updates-released-f$releasever&arch=$basearch
 repo --name=rpmfusion-free --mirrorlist=https://mirrors.rpmfusion.org/metalink?repo=free-fedora-$releasever&arch=$basearch
@@ -87,8 +70,6 @@ anaconda-live
 # ═══════════════════════════════════════════
 # WAYLAND (GNOME 49+)
 # ═══════════════════════════════════════════
-# ❌ @base-x kaldırıldı - X11 artık yok
-@base-graphical
 mutter
 egl-wayland
 xorg-x11-server-Xwayland
@@ -100,7 +81,7 @@ qt5-qtwayland
 qt6-qtwayland
 
 # ═══════════════════════════════════════════
-# GNOME MASAÜSTÜ (WAYLAND)
+# GNOME MASAÜSTÜ
 # ═══════════════════════════════════════════
 @gnome-desktop
 gdm
@@ -138,11 +119,46 @@ gnome-remote-desktop
 gnome-connections
 
 # ═══════════════════════════════════════════
-# GNOME ÖZELLEŞTİRME
+# GNOME ÖZELLEŞTİRME ARAÇLARI
 # ═══════════════════════════════════════════
 gnome-tweaks
 gnome-extensions-app
+
+# ═══════════════════════════════════════════
+# GNOME EKLENTİLERİ (Yeni Başlayanlar İçin)
+# ═══════════════════════════════════════════
+# Sistem Tepsisi - Discord, Spotify vb. için şart
 gnome-shell-extension-appindicator
+
+# Dock - Ubuntu benzeri alt/yan çubuk (EN ÖNEMLİ!)
+gnome-shell-extension-dash-to-dock
+
+# Telefon Bağlantısı - Android telefon entegrasyonu
+gnome-shell-extension-gsconnect
+
+# Ekranı Açık Tut - Video izlerken vs. kapanmasın
+gnome-shell-extension-caffeine
+
+# Pano Geçmişi - Kopyaladıklarınızı hatırlar
+gnome-shell-extension-clipboard-indicator
+
+# Bulanık Efektler - Şık görünüm
+gnome-shell-extension-blur-my-shell
+
+# GNOME Özelleştirme - Panel, dock ayarları
+gnome-shell-extension-just-perfection
+
+# Arka Plan Logosu - Masaüstünde logo göster
+gnome-shell-extension-background-logo
+
+# Pencere Listesi - Alt panelde açık pencereler
+gnome-shell-extension-window-list
+
+# Uygulama Menüsü - Klasik uygulama menüsü
+gnome-shell-extension-apps-menu
+
+# Yerler Menüsü - Hızlı klasör erişimi
+gnome-shell-extension-places-menu
 
 # ═══════════════════════════════════════════
 # UYGULAMALAR
@@ -192,11 +208,10 @@ gstreamer1-plugin-openh264
 pipewire
 pipewire-pulseaudio
 pipewire-alsa
-pipewire-jack-audio-connection-kit
 wireplumber
 
 # ═══════════════════════════════════════════
-# SÜRÜCÜLER (WAYLAND)
+# SÜRÜCÜLER
 # ═══════════════════════════════════════════
 mesa-dri-drivers
 mesa-vulkan-drivers
@@ -223,9 +238,6 @@ dejavu-fonts-all
 -@input-methods
 -fedora-release-notes
 -gnome-tour
-# X11 paketlerini kaldır (gereksiz)
--xorg-x11-server-Xorg
--xorg-x11-drv-*
 
 %end
 
@@ -283,7 +295,7 @@ defaultyes=True
 EOF
 
 # ═══════════════════════════════════════════
-# GDM - WAYLAND ZORUNLU
+# GDM YAPILANDIRMASI
 # ═══════════════════════════════════════════
 mkdir -p /etc/gdm
 
@@ -291,7 +303,6 @@ cat > /etc/gdm/custom.conf << 'EOF'
 [daemon]
 AutomaticLoginEnable=True
 AutomaticLogin=ymy
-# Wayland varsayılan (GNOME 49+ için zaten tek seçenek)
 WaylandEnable=true
 DefaultSession=gnome-wayland.desktop
 
@@ -305,7 +316,7 @@ DefaultSession=gnome-wayland.desktop
 EOF
 
 # ═══════════════════════════════════════════
-# GNOME AYARLARI (WAYLAND)
+# GNOME EKLENTİLERİNİ ETKİNLEŞTİR
 # ═══════════════════════════════════════════
 mkdir -p /etc/dconf/db/local.d
 mkdir -p /etc/dconf/profile
@@ -315,7 +326,16 @@ user-db:user
 system-db:local
 EOF
 
-cat > /etc/dconf/db/local.d/00-ymy-os << 'EOF'
+cat > /etc/dconf/db/local.d/00-ymy-extensions << 'EOF'
+[org/gnome/shell]
+# Varsayılan olarak aktif eklentiler
+enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com', 'dash-to-dock@micxgx.gmail.com', 'gsconnect@andyholmes.github.io', 'caffeine@pataber.name', 'clipboard-indicator@tudmotu.com', 'blur-my-shell@aunetx', 'just-perfection-desktop@just-perfection', 'background-logo@fedorahosted.org', 'window-list@gnome-shell-extensions.gcampax.github.com', 'apps-menu@gnome-shell-extensions.gcampax.github.com', 'places-menu@gnome-shell-extensions.gcampax.github.com']
+
+# Favori uygulamalar
+favorite-apps=['org.gnome.Nautilus.desktop', 'firefox.desktop', 'org.gnome.Software.desktop', 'libreoffice-writer.desktop', 'org.gnome.Settings.desktop', 'org.gnome.Terminal.desktop']
+EOF
+
+cat > /etc/dconf/db/local.d/01-ymy-interface << 'EOF'
 [org/gnome/desktop/interface]
 color-scheme='prefer-dark'
 gtk-theme='Adwaita-dark'
@@ -332,11 +352,7 @@ button-layout='appmenu:minimize,maximize,close'
 [org/gnome/mutter]
 edge-tiling=true
 dynamic-workspaces=true
-# Wayland için experimental özellikler
 experimental-features=['variable-refresh-rate', 'scale-monitor-framebuffer']
-
-[org/gnome/shell]
-favorite-apps=['org.gnome.Nautilus.desktop', 'firefox.desktop', 'org.gnome.Software.desktop', 'libreoffice-writer.desktop', 'org.gnome.Settings.desktop']
 
 [org/gnome/desktop/peripherals/touchpad]
 tap-to-click=true
@@ -347,12 +363,74 @@ natural-scroll=true
 download-updates=true
 download-updates-notify=true
 first-run=false
-
-[org/gnome/mutter/wayland]
-# Wayland için ek ayarlar
-xwayland-grab-access-rules=[]
 EOF
 
+# ═══════════════════════════════════════════
+# DASH TO DOCK AYARLARI
+# ═══════════════════════════════════════════
+cat > /etc/dconf/db/local.d/02-ymy-dash-to-dock << 'EOF'
+[org/gnome/shell/extensions/dash-to-dock]
+# Dock konumu (sol, alt, sağ)
+dock-position='BOTTOM'
+# Dock genişliği
+dash-max-icon-size=48
+# Otomatik gizle
+autohide=true
+intellihide=true
+# Şeffaflık
+transparency-mode='DYNAMIC'
+background-opacity=0.8
+# Tıklama davranışı
+click-action='focus-or-previews'
+# Çöp kutusu ve bağlı diskler
+show-trash=true
+show-mounts=true
+# Uygulama göstergeleri
+running-indicator-style='DOTS'
+EOF
+
+# ═══════════════════════════════════════════
+# BLUR MY SHELL AYARLARI
+# ═══════════════════════════════════════════
+cat > /etc/dconf/db/local.d/03-ymy-blur << 'EOF'
+[org/gnome/shell/extensions/blur-my-shell]
+brightness=0.6
+sigma=30
+
+[org/gnome/shell/extensions/blur-my-shell/panel]
+blur=true
+brightness=0.75
+
+[org/gnome/shell/extensions/blur-my-shell/overview]
+blur=true
+EOF
+
+# ═══════════════════════════════════════════
+# JUST PERFECTION AYARLARI
+# ═══════════════════════════════════════════
+cat > /etc/dconf/db/local.d/04-ymy-perfection << 'EOF'
+[org/gnome/shell/extensions/just-perfection]
+# Animasyonlar
+animation=2
+# Saat konumu
+clock-menu-position=1
+# Aktiviteler butonu
+activities-button=true
+# Arama
+search=true
+# Bildirimler
+notification-banner-position=2
+EOF
+
+# ═══════════════════════════════════════════
+# GSCONNECT AYARLARI
+# ═══════════════════════════════════════════
+cat > /etc/dconf/db/local.d/05-ymy-gsconnect << 'EOF'
+[org/gnome/shell/extensions/gsconnect]
+show-indicators=true
+EOF
+
+# dconf veritabanını güncelle
 dconf update
 
 # ═══════════════════════════════════════════
@@ -363,8 +441,6 @@ systemctl enable NetworkManager
 systemctl enable bluetooth
 systemctl enable cups
 systemctl enable fwupd
-systemctl enable pipewire
-systemctl enable wireplumber
 
 # ═══════════════════════════════════════════
 # LIVE SİSTEM
