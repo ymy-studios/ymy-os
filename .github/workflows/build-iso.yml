@@ -1,0 +1,412 @@
+# .github/workflows/build-iso.yml
+
+name: 🔨 Build YmY OS
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '📦 Sürüm Numarası (örn: 2025.1)'
+        required: true
+        type: string
+      codename:
+        description: '🏷️ Kod Adı (örn: Başlangıç)'
+        required: false
+        default: ''
+        type: string
+      fedora_version:
+        description: '🎩 Fedora Sürümü'
+        required: true
+        default: '43'
+        type: choice
+        options:
+          - '43'
+          - '42'
+          - '41'
+      aggressive_cleanup:
+        description: '🧹 Agresif Temizleme (Build öncesi)'
+        required: true
+        default: true
+        type: boolean
+      create_release:
+        description: '📤 Release Oluştur'
+        required: true
+        default: false
+        type: boolean
+
+env:
+  ISO_NAME: "YmY-OS"
+
+jobs:
+  # ═══════════════════════════════════════════════════════════
+  # HAZIRLIK
+  # ═══════════════════════════════════════════════════════════
+  prepare:
+    name: 📋 Hazırlık
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      full_name: ${{ steps.version.outputs.full_name }}
+      iso_filename: ${{ steps.version.outputs.iso_filename }}
+    
+    steps:
+      - name: 📝 Sürüm Bilgilerini Ayarla
+        id: version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          CODENAME="${{ github.event.inputs.codename }}"
+          FEDORA="${{ github.event.inputs.fedora_version }}"
+          
+          if [ -n "$CODENAME" ]; then
+            FULL_NAME="YmY OS ${VERSION} \"${CODENAME}\""
+          else
+            FULL_NAME="YmY OS ${VERSION}"
+          fi
+          
+          ISO_FILENAME="YmY-OS-${VERSION}-F${FEDORA}-x86_64.iso"
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "full_name=${FULL_NAME}" >> $GITHUB_OUTPUT
+          echo "iso_filename=${ISO_FILENAME}" >> $GITHUB_OUTPUT
+          
+          echo "╔════════════════════════════════════════════╗"
+          echo "║          YmY OS Build Bilgileri            ║"
+          echo "╠════════════════════════════════════════════╣"
+          echo "║ Sürüm      : ${VERSION}"
+          echo "║ Kod Adı    : ${CODENAME:-Belirtilmedi}"
+          echo "║ Fedora     : ${FEDORA}"
+          echo "║ ISO Dosyası: ${ISO_FILENAME}"
+          echo "║ Tarih      : $(date '+%d %B %Y')"
+          echo "╚════════════════════════════════════════════╝"
+
+  # ═══════════════════════════════════════════════════════════
+  # BUILD
+  # ═══════════════════════════════════════════════════════════
+  build:
+    name: 🔨 ISO Build
+    needs: prepare
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🧹 Agresif Temizleme
+        if: ${{ github.event.inputs.aggressive_cleanup == 'true' }}
+        run: |
+          echo "╔════════════════════════════════════════════╗"
+          echo "║       🧹 AGRESİF TEMİZLİK BAŞLIYOR         ║"
+          echo "╚════════════════════════════════════════════╝"
+          
+          echo "📊 Temizlik öncesi:"
+          df -h /
+          
+          # Docker
+          echo "🐳 Docker temizleniyor..."
+          docker system prune -af --volumes 2>/dev/null || true
+          
+          # APT
+          echo "📦 APT temizleniyor..."
+          sudo apt-get autoremove -y 2>/dev/null || true
+          sudo apt-get clean 2>/dev/null || true
+          sudo rm -rf /var/lib/apt/lists/*
+          
+          # Swap
+          echo "💾 Swap kaldırılıyor..."
+          sudo swapoff -a 2>/dev/null || true
+          sudo rm -f /swapfile 2>/dev/null || true
+          
+          # Büyük gereksiz dizinler
+          echo "📁 Gereksiz dizinler temizleniyor..."
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/lib/jvm
+          sudo rm -rf /usr/local/graalvm
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /opt/hostedtoolcache/go
+          sudo rm -rf /opt/hostedtoolcache/Ruby
+          sudo rm -rf /opt/hostedtoolcache/node
+          sudo rm -rf /opt/hostedtoolcache/Python
+          sudo rm -rf /usr/share/miniconda
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/share/az_*
+          sudo rm -rf /opt/microsoft
+          sudo rm -rf /usr/share/gradle*
+          sudo rm -rf /usr/share/sbt
+          sudo rm -rf /usr/local/julia*
+          sudo rm -rf /usr/share/kotlinc
+          sudo rm -rf /usr/local/aws-*
+          sudo rm -rf /usr/share/mecab
+          sudo rm -rf /usr/share/ri
+          sudo rm -rf /usr/share/apache-maven*
+          sudo rm -rf /usr/share/locale/*
+          sudo rm -rf /usr/share/man/*
+          sudo rm -rf /usr/share/doc/*
+          
+          # Loglar ve cache
+          echo "📋 Loglar ve cache temizleniyor..."
+          sudo rm -rf /var/log/*.log 2>/dev/null || true
+          sudo journalctl --vacuum-size=10M 2>/dev/null || true
+          sudo rm -rf /tmp/* 2>/dev/null || true
+          sudo rm -rf /home/runner/.cache/* 2>/dev/null || true
+          
+          sync
+          
+          echo ""
+          echo "📊 Temizlik sonrası:"
+          df -h /
+          echo ""
+          echo "✅ Yaklaşık 40-50 GB alan açıldı"
+
+      - name: 🐳 Fedora Container Başlat
+        run: |
+          docker run -d \
+            --name fedora-builder \
+            --privileged \
+            --security-opt seccomp=unconfined \
+            -v ${{ github.workspace }}:/workspace:Z \
+            -v /dev:/dev \
+            -e VERSION="${{ needs.prepare.outputs.version }}" \
+            -e FEDORA_VERSION="${{ github.event.inputs.fedora_version }}" \
+            -e CODENAME="${{ github.event.inputs.codename }}" \
+            fedora:${{ github.event.inputs.fedora_version }} \
+            sleep infinity
+          
+          sleep 5
+          echo "✅ Fedora ${{ github.event.inputs.fedora_version }} container başlatıldı"
+
+      - name: 📦 Build Araçlarını Kur
+        run: |
+          docker exec fedora-builder bash -c '
+            echo "📦 Build araçları kuruluyor..."
+            
+            dnf install -y \
+              lorax \
+              lorax-lmc-novirt \
+              anaconda \
+              pykickstart \
+              livecd-tools \
+              squashfs-tools \
+              xorriso \
+              syslinux \
+              isomd5sum \
+              createrepo_c \
+              git \
+              ImageMagick \
+              curl \
+              wget \
+              rsync \
+              --setopt=install_weak_deps=False
+            
+            echo "✅ Build araçları kuruldu"
+          '
+
+      - name: 🎨 Logo Boyutları Oluştur
+        run: |
+          docker exec fedora-builder bash -c '
+            cd /workspace
+            
+            echo "🎨 Logo boyutları oluşturuluyor..."
+            mkdir -p branding/logos
+            
+            if [ -f "branding/ymy-logo.png" ]; then
+              convert branding/ymy-logo.png -resize 256x256 branding/logos/ymy-logo-256.png
+              convert branding/ymy-logo.png -resize 128x128 branding/logos/ymy-logo-128.png
+              convert branding/ymy-logo.png -resize 64x64 branding/logos/ymy-logo-64.png
+              convert branding/ymy-logo.png -resize 48x48 branding/logos/ymy-logo-48.png
+              convert branding/ymy-logo.png -resize 32x32 branding/logos/ymy-logo-32.png
+              convert branding/ymy-logo.png -resize 22x22 branding/logos/ymy-logo-22.png
+              
+              echo "✅ Logo boyutları:"
+              ls -la branding/logos/
+            else
+              echo "⚠️ Logo bulunamadı: branding/ymy-logo.png"
+              echo "⚠️ Varsayılan logo kullanılacak"
+            fi
+          '
+
+      - name: 📝 Kickstart Hazırla
+        run: |
+          docker exec fedora-builder bash -c '
+            cd /workspace
+            
+            echo "📋 Kickstart doğrulanıyor..."
+            ksvalidator kickstart/ymy-os.ks
+            
+            echo "📝 Sürüm bilgileri ekleniyor..."
+            sed -i "s|%YMY_VERSION%|${VERSION}|g" kickstart/ymy-os.ks
+            sed -i "s|%YMY_CODENAME%|${CODENAME}|g" kickstart/ymy-os.ks
+            sed -i "s|%FEDORA_VERSION%|${FEDORA_VERSION}|g" kickstart/ymy-os.ks
+            
+            echo "📄 Kickstart düzleştiriliyor..."
+            ksflatten -c kickstart/ymy-os.ks -o /tmp/ymy-os-flat.ks
+            
+            echo "✅ Kickstart hazır"
+          '
+
+      - name: 🔨 ISO Oluştur
+        run: |
+          docker exec fedora-builder bash -c '
+            cd /workspace
+            mkdir -p output
+            
+            ISO_NAME="YmY-OS-${VERSION}-F${FEDORA_VERSION}-x86_64"
+            
+            echo "╔════════════════════════════════════════════╗"
+            echo "║          🔨 ISO BUILD BAŞLIYOR             ║"
+            echo "╠════════════════════════════════════════════╣"
+            echo "║ Bu işlem 30-90 dakika sürebilir...         ║"
+            echo "║ Lütfen bekleyin...                         ║"
+            echo "╚════════════════════════════════════════════╝"
+            echo ""
+            
+            livemedia-creator \
+              --ks=/tmp/ymy-os-flat.ks \
+              --no-virt \
+              --resultdir=/workspace/output \
+              --project="YmY OS" \
+              --make-iso \
+              --volid="YmY-OS-${VERSION}" \
+              --iso-only \
+              --iso-name="${ISO_NAME}.iso" \
+              --releasever=${FEDORA_VERSION} \
+              --macboot \
+              --anaconda-arg="--product YmY OS" \
+              --anaconda-arg="--version ${VERSION}" \
+              --title="YmY OS ${VERSION}" \
+              2>&1 | tee /workspace/output/build.log
+          '
+        timeout-minutes: 120
+
+      - name: 📊 ISO Doğrula
+        run: |
+          docker exec fedora-builder bash -c '
+            cd /workspace/output
+            
+            ISO_FILE=$(ls *.iso 2>/dev/null | head -1)
+            
+            if [ -z "$ISO_FILE" ]; then
+              echo "❌ ISO dosyası bulunamadı!"
+              echo ""
+              echo "═══ Build Log (son 150 satır) ═══"
+              tail -150 build.log
+              exit 1
+            fi
+            
+            echo "╔════════════════════════════════════════════╗"
+            echo "║          ✅ ISO BAŞARIYLA OLUŞTURULDU!     ║"
+            echo "╚════════════════════════════════════════════╝"
+            echo ""
+            
+            SIZE=$(du -h "$ISO_FILE" | cut -f1)
+            echo "📀 Dosya : $ISO_FILE"
+            echo "📊 Boyut : $SIZE"
+            echo ""
+            
+            echo "🔐 Checksum oluşturuluyor..."
+            sha256sum "$ISO_FILE" > "${ISO_FILE}.sha256"
+            md5sum "$ISO_FILE" > "${ISO_FILE}.md5"
+            
+            echo "SHA256: $(cat ${ISO_FILE}.sha256)"
+          '
+
+      - name: 📤 Artifact Yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: YmY-OS-${{ needs.prepare.outputs.version }}
+          path: |
+            output/*.iso
+            output/*.sha256
+            output/*.md5
+          retention-days: 30
+          compression-level: 0
+
+      - name: 📋 Build Log Yükle
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-logs-${{ needs.prepare.outputs.version }}
+          path: output/build.log
+          retention-days: 7
+
+      - name: 🧹 Container Temizliği
+        if: always()
+        run: |
+          docker stop fedora-builder 2>/dev/null || true
+          docker rm fedora-builder 2>/dev/null || true
+
+  # ═══════════════════════════════════════════════════════════
+  # RELEASE (Opsiyonel)
+  # ═══════════════════════════════════════════════════════════
+  release:
+    name: 📦 Release Oluştur
+    needs: [prepare, build]
+    if: ${{ github.event.inputs.create_release == 'true' }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Artifact İndir
+        uses: actions/download-artifact@v4
+        with:
+          name: YmY-OS-${{ needs.prepare.outputs.version }}
+          path: ./release
+
+      - name: 📝 Release Notları
+        run: |
+          cat > RELEASE_NOTES.md << 'EOF'
+          ## 🎉 ${{ needs.prepare.outputs.full_name }}
+          
+          **Fedora ${{ github.event.inputs.fedora_version }} tabanlı, yeni başlayanlar için tasarlanmış Linux dağıtımı.**
+          
+          ### ✨ Özellikler
+          
+          - 🖥️ GNOME masaüstü ortamı (özelleştirilmiş)
+          - 🖱️ Terminal gerektirmeden kullanım
+          - 🇹🇷 Tam Türkçe dil desteği
+          - 📦 Önceden yüklenmiş kullanışlı uygulamalar
+          - 🎨 Koyu tema ve modern görünüm
+          - 🔄 Flatpak desteği
+          
+          ### 📥 Kurulum
+          
+          1. ISO dosyasını indirin
+          2. SHA256 ile doğrulayın:
+             ```bash
+             sha256sum -c YmY-OS-*.sha256
+             ```
+          3. [Rufus](https://rufus.ie/) veya [Etcher](https://etcher.balena.io/) ile USB'ye yazdırın
+          4. USB'den başlatın ve kurulum sihirbazını takip edin
+          
+          ### 💻 Sistem Gereksinimleri
+          
+          | Bileşen | Minimum | Önerilen |
+          |---------|---------|----------|
+          | İşlemci | 64-bit, 2 çekirdek | 4+ çekirdek |
+          | RAM | 4 GB | 8 GB |
+          | Disk | 25 GB | 50 GB SSD |
+          
+          ---
+          
+          📅 **Build Tarihi:** $(date '+%d %B %Y')  
+          🎩 **Fedora Sürümü:** ${{ github.event.inputs.fedora_version }}  
+          🔗 **GitHub:** https://github.com/ymy-studios/ymy-os
+          EOF
+
+      - name: 🚀 GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: ${{ needs.prepare.outputs.full_name }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            ./release/*.iso
+            ./release/*.sha256
+            ./release/*.md5
+          draft: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
