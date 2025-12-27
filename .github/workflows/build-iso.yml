@@ -154,6 +154,9 @@ jobs:
           sudo rm -rf /tmp/* 2>/dev/null || true
           sudo rm -rf /home/runner/.cache/* 2>/dev/null || true
           
+          # Workspace output dizinini de temizle
+          rm -rf ${{ github.workspace }}/output 2>/dev/null || true
+          
           sync
           
           echo ""
@@ -263,8 +266,7 @@ jobs:
             rm -rf /tmp/lorax*
             rm -rf /tmp/lmc*
             
-            # Yeni output dizini oluştur
-            mkdir -p /workspace/output
+            # Output dizini OLUŞTURMA - livemedia-creator kendisi oluşturacak!
             
             ISO_NAME="YmY-OS-${VERSION}-F${FEDORA_VERSION}-x86_64"
             
@@ -280,6 +282,7 @@ jobs:
             echo "   ISO      : ${ISO_NAME}.iso"
             echo ""
             
+            # Build başlat
             livemedia-creator \
               --ks=/tmp/ymy-os-flat.ks \
               --no-virt \
@@ -291,22 +294,46 @@ jobs:
               --iso-name="${ISO_NAME}.iso" \
               --releasever="${FEDORA_VERSION}" \
               --macboot \
-              2>&1 | tee /workspace/output/build.log
+              --logfile=/tmp/livemedia.log \
+              2>&1 | tee /tmp/build-console.log
+            
+            BUILD_EXIT_CODE=$?
+            
+            # Log dosyalarını output dizinine kopyala
+            mkdir -p /workspace/output
+            cp /tmp/livemedia.log /workspace/output/build.log 2>/dev/null || true
+            cp /tmp/build-console.log /workspace/output/console.log 2>/dev/null || true
+            
+            exit $BUILD_EXIT_CODE
           '
         timeout-minutes: 120
 
       - name: 📊 ISO Doğrula
+        if: always()
         run: |
           docker exec fedora-builder bash -c '
-            cd /workspace/output
+            cd /workspace/output 2>/dev/null || cd /workspace
             
+            # Output dizini var mı kontrol et
+            if [ ! -d "/workspace/output" ]; then
+              echo "❌ Output dizini oluşturulmamış!"
+              echo ""
+              echo "═══ Console Log ═══"
+              cat /tmp/build-console.log 2>/dev/null || echo "Console log bulunamadı"
+              echo ""
+              echo "═══ Livemedia Log ═══"
+              cat /tmp/livemedia.log 2>/dev/null || echo "Livemedia log bulunamadı"
+              exit 1
+            fi
+            
+            cd /workspace/output
             ISO_FILE=$(ls *.iso 2>/dev/null | head -1)
             
             if [ -z "$ISO_FILE" ]; then
               echo "❌ ISO dosyası bulunamadı!"
               echo ""
-              echo "═══ Build Log (son 150 satır) ═══"
-              tail -150 build.log
+              echo "═══ Build Log (son 200 satır) ═══"
+              tail -200 /tmp/livemedia.log 2>/dev/null || tail -200 /tmp/build-console.log 2>/dev/null || echo "Log bulunamadı"
               exit 1
             fi
             
@@ -328,6 +355,7 @@ jobs:
           '
 
       - name: 📤 Artifact Yükle
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: YmY-OS-${{ needs.prepare.outputs.version }}
@@ -343,12 +371,18 @@ jobs:
         if: always()
         with:
           name: build-logs-${{ needs.prepare.outputs.version }}
-          path: output/build.log
+          path: |
+            output/*.log
           retention-days: 7
 
       - name: 🧹 Container Temizliği
         if: always()
         run: |
+          # Logları host'a kopyala (artifact için)
+          docker cp fedora-builder:/tmp/livemedia.log ./output/build.log 2>/dev/null || true
+          docker cp fedora-builder:/tmp/build-console.log ./output/console.log 2>/dev/null || true
+          mkdir -p output
+          
           docker stop fedora-builder 2>/dev/null || true
           docker rm fedora-builder 2>/dev/null || true
 
